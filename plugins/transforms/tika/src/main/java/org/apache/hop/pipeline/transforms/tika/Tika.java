@@ -292,11 +292,15 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
       //  the file is less than 64KB (which is what Tika will read), then bad things happen.
       if (vfsFilename.startsWith("file:")) {
         logBasic("route1");
+        logBasic("Before transformation");
+        logBasic(vfsFilename);
         String tika_output = vfsFilename.substring(8).replaceAll("/", "\\");
+        logBasic("After transformation");
+        logBasic(tika_output);
         inputStream = new FileInputStream(tika_output);
       } else {
         logBasic("route2");
-        inputStream = HopVfs.getInputStream(vfsFilename);
+        inputStream = HopVfs.getInputStream(vfsFilename.substring(8).replaceAll("/", "\\"));
       }
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       data.tikaOutput.parse(inputStream, meta.getOutputFormat(), baos);
