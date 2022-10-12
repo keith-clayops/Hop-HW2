@@ -266,7 +266,8 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
 
   private void getFileContent() throws HopException {
     try {
-      data.fileContent = getTextFileContent(data.file.toString(), meta.getEncoding());
+      String tika_output = data.file.toString().substring(8).replace("/", "\\");
+      data.fileContent = getTextFileContent(tika_output, meta.getEncoding());
     } catch (OutOfMemoryError o) {
       logError(BaseMessages.getString(PKG, "Tika.Error.NotEnoughMemory", data.file.getName()));
       throw new HopException(o);
@@ -294,13 +295,14 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
         logBasic("route1");
         logBasic("Before transformation");
         logBasic(vfsFilename);
-        String tika_output = vfsFilename.substring(8).replaceAll("/", "\\");
+        String tika_output = vfsFilename.substring(8).replace("/", "\\");
         logBasic("After transformation");
         logBasic(tika_output);
         inputStream = new FileInputStream(tika_output);
+        logBasic("inputstream no error");
       } else {
         logBasic("route2");
-        inputStream = HopVfs.getInputStream(vfsFilename.substring(8).replaceAll("/", "\\"));
+        inputStream = HopVfs.getInputStream(vfsFilename.substring(8).replace("/", "\\"));
       }
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       data.tikaOutput.parse(inputStream, meta.getOutputFormat(), baos);
