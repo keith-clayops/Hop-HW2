@@ -302,7 +302,8 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
         logBasic("inputstream no error");
       } else {
         logBasic("route2");
-        inputStream = HopVfs.getInputStream(vfsFilename.substring(8).replace("/", "\\"));
+        logBasic(vfsFilename);
+        inputStream = HopVfs.getInputStream(vfsFilename);
       }
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       data.tikaOutput.parse(inputStream, meta.getOutputFormat(), baos);
