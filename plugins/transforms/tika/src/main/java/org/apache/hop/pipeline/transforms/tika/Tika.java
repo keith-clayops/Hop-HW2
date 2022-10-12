@@ -289,8 +289,10 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
       //  The version of VFS we use will close the stream when all bytes are read, and if
       //  the file is less than 64KB (which is what Tika will read), then bad things happen.
       if (vfsFilename.startsWith("file:")) {
-        inputStream = new FileInputStream(vfsFilename.substring(5));
+        log.logDetailed("route1");
+        inputStream = new FileInputStream(vfsFilename.substring(8));
       } else {
+        log.logDetailed("route2");
         inputStream = HopVfs.getInputStream(vfsFilename);
       }
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
