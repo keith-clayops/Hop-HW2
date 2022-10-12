@@ -190,6 +190,54 @@ public class HopVfs {
     }
   }
 
+  public static synchronized FileObject getFileObjectTika(String vfsFilename) throws HopFileException {
+    lock.readLock().lock();
+    try {
+      DefaultFileSystemManager fsManager = getFileSystemManager();
+
+      try {
+        // We have one problem with VFS: if the file is in a subdirectory of the current one:
+        // somedir/somefile
+        // In that case, VFS doesn't parse the file correctly.
+        // We need to put file: in front of it to make it work.
+        // However, how are we going to verify this?
+        //
+        // We are going to see if the filename starts with one of the known protocols like file:
+        // zip: ram: smb: jar: etc.
+        // If not, we are going to assume it's a file.
+        //
+        boolean relativeFilename = true;
+        String[] initialSchemes = fsManager.getSchemes();
+
+        relativeFilename = checkForScheme(initialSchemes, relativeFilename, vfsFilename);
+
+        String filename;
+        if (vfsFilename.startsWith("\\\\")) {
+          File file = new File(vfsFilename);
+          filename = vfsFilename;
+        } else {
+          if (relativeFilename) {
+            File file = new File(vfsFilename);
+            filename = vfsFilename;
+          } else {
+            filename = vfsFilename;
+          }
+        }
+
+        return fsManager.resolveFile(filename);
+      } catch (Exception e) {
+        throw new HopFileException(
+                "Unable to get VFS File object for filename '"
+                        + cleanseFilename(vfsFilename)
+                        + "' : "
+                        + e.getMessage(),
+                e);
+      }
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
   protected static boolean checkForScheme(
       String[] initialSchemes, boolean relativeFilename, String vfsFilename) {
     if (vfsFilename == null) {
@@ -339,7 +387,6 @@ public class HopVfs {
     }
     return fileString;
   }
-
   public static String getFriendlyURI(String filename) {
     if (filename == null) {
       return null;
