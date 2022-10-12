@@ -292,7 +292,8 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
       //  the file is less than 64KB (which is what Tika will read), then bad things happen.
       if (vfsFilename.startsWith("file:")) {
         logBasic("route1");
-        inputStream = new FileInputStream(vfsFilename.substring(5));
+        String tika_output = vfsFilename.substring(8).replaceAll("/", "\\");
+        inputStream = new FileInputStream(tika_output);
       } else {
         logBasic("route2");
         inputStream = HopVfs.getInputStream(vfsFilename);
