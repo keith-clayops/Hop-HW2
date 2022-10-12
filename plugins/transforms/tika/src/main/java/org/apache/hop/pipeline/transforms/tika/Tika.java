@@ -132,6 +132,7 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
 
         try {
           // Source is a file.
+          logBasic(fieldvalue);
           data.file = HopVfs.getFileObjectTika(fieldvalue);
         } catch (HopFileException e) {
           throw new HopException(e);
@@ -170,7 +171,8 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
         logError(BaseMessages.getString(PKG, "Tika.Error.FileSizeZero", "" + data.file.getName()));
         openNextFile();
 
-      } else {
+      }
+      else {
         if (isDetailed()) {
           logDetailed(BaseMessages.getString(PKG, "Tika.Log.OpeningFile", data.file.toString()));
         }
@@ -289,10 +291,10 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
       //  The version of VFS we use will close the stream when all bytes are read, and if
       //  the file is less than 64KB (which is what Tika will read), then bad things happen.
       if (vfsFilename.startsWith("file:")) {
-        log.logBasic("route1");
+        logBasic("route1");
         inputStream = new FileInputStream(vfsFilename.substring(5));
       } else {
-        log.logBasic("route2");
+        logBasic("route2");
         inputStream = HopVfs.getInputStream(vfsFilename);
       }
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
