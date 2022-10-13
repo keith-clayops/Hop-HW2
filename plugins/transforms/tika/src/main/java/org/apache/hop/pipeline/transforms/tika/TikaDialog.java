@@ -24,7 +24,6 @@ import org.apache.hop.core.exception.HopException;
 import org.apache.hop.core.fileinput.FileInputList;
 import org.apache.hop.core.logging.LogChannel;
 import org.apache.hop.core.row.IRowMeta;
-import org.apache.hop.core.util.Utils;
 import org.apache.hop.core.variables.IVariables;
 import org.apache.hop.i18n.BaseMessages;
 import org.apache.hop.pipeline.Pipeline;
@@ -45,7 +44,6 @@ import org.eclipse.swt.custom.CTabItem;
 import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.layout.FormLayout;
@@ -106,16 +104,13 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
   private int middle;
   private int margin;
 
-  protected Listener lsOk;
-  protected Listener lsCancel;
-
   public TikaDialog(
       final Shell parent,
       IVariables variables,
       final Object baseTransformMeta,
       final PipelineMeta pipelineMeta,
-      final String sname) {
-    super(parent, variables, (BaseTransformMeta) baseTransformMeta, pipelineMeta, sname);
+      final String transformName) {
+    super(parent, variables, (BaseTransformMeta) baseTransformMeta, pipelineMeta, transformName);
     input = (TikaMeta) baseTransformMeta;
   }
 
@@ -224,16 +219,12 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
     fdFileNameInField.left = new FormAttachment(middle, -margin);
     fdFileNameInField.top = new FormAttachment(wlFilenameInField, 0, SWT.CENTER);
     wFilenameInField.setLayoutData(fdFileNameInField);
-
-    SelectionAdapter lfilefield = new SelectionAdapter() {
-      public void widgetSelected(SelectionEvent arg0) {
+    wFilenameInField.addListener(
+        SWT.Selection,
+        e -> {
           enableFields();
-          setDynamicFilenameField();
-          input.setChanged(true);
-      }
-    };
-
-    wFilenameInField.addSelectionListener(lfilefield);
+          input.setChanged();
+        });
 
     // If Filename defined in a Field
     Label wlFilenameField = new Label(wOutputField, SWT.RIGHT);
@@ -258,11 +249,7 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
           public void focusLost(org.eclipse.swt.events.FocusEvent e) {}
 
           public void focusGained(org.eclipse.swt.events.FocusEvent e) {
-              Cursor busy = new Cursor(shell.getDisplay(), SWT.CURSOR_WAIT);
-              shell.setCursor(busy);
-              setDynamicFilenameField();
-              shell.setCursor(null);
-              busy.dispose();
+            setDynamicFilenameField();
           }
         });
 
@@ -627,40 +614,13 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
     fdTabFolder.bottom = new FormAttachment(wOk, -2 * margin);
     wTabFolder.setLayoutData(fdTabFolder);
 
-    BaseTransformDialog.positionBottomButtons(shell, new Button[] { wOk, wCancel }, margin, wTabFolder);
-
-    lsCancel = new Listener() {
-      public void handleEvent(Event e) {
-        cancel();
-      }
-    };
-
-    lsOk = new Listener() {
-      public void handleEvent(Event e) {
-        ok();
-      }
-    };
-
-    wCancel.addListener(SWT.Selection, lsCancel);
-    wOk.addListener(SWT.Selection, lsOk);
-
-    SelectionAdapter lsDef =
-            new SelectionAdapter() {
-              public void widgetDefaultSelected(SelectionEvent e) {
-                ok();
-              }
-            };
-
-    wTransformName.addSelectionListener(lsDef);
-
     // Add the file to the list of files...
     SelectionAdapter selA =
         new SelectionAdapter() {
           @Override
           public void widgetSelected(SelectionEvent arg0) {
             wFilenameList.add(
-                wFilename.getText(), wFilemask.getText(), wExcludeFilemask.getText(), "N", "N");
-
+                wFilename.getText(), wFilemask.getText(), wExcludeFilemask.getText(), "Y", "Y");
             wFilename.setText("");
             wFilemask.setText("");
             wExcludeFilemask.setText("");
@@ -681,7 +641,6 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
             wFilenameList.remove(idx);
             wFilenameList.removeEmptyRows();
             wFilenameList.setRowNums();
-            input.setChanged();
           }
         });
 
@@ -700,7 +659,6 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
             }
             wFilenameList.removeEmptyRows();
             wFilenameList.setRowNums();
-            input.setChanged();
           }
         });
 
@@ -710,9 +668,9 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
           @Override
           public void widgetSelected(SelectionEvent e) {
             try {
-              //TikaMeta tikaMeta = new TikaMeta();
-              getInfo(input);
-              FileInputList fileInputList = input.getFiles(variables);
+              TikaMeta tikaMeta = new TikaMeta();
+              getInfo(tikaMeta);
+              FileInputList fileInputList = tikaMeta.getFiles(variables);
               String[] files = fileInputList.getFileStrings();
               if (files != null && files.length > 0) {
                 EnterSelectionDialog esd =
@@ -795,24 +753,20 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
 
     BaseDialog.defaultShellHandling(shell, c -> ok(), c -> cancel());
 
-    return transformName;
+    return this.transformName;
   }
 
   private void setDynamicFilenameField() {
-
+    if (!gotPreviousFields) {
       try {
-        if (!gotPreviousFields) {
-
-          gotPreviousFields = true;
-          String field = wFilenameField.getText();
-          wFilenameField.removeAll();
-          IRowMeta r = pipelineMeta.getPrevTransformFields(variables, transformName);
-          if (r != null) {
-            wFilenameField.setItems(r.getFieldNames());
-          }
-          if (field != null) {
-            wFilenameField.setText(field);
-          }
+        String field = wFilenameField.getText();
+        wFilenameField.removeAll();
+        IRowMeta r = pipelineMeta.getPrevTransformFields(variables, transformName);
+        if (r != null) {
+          wFilenameField.setItems(r.getFieldNames());
+        }
+        if (field != null) {
+          wFilenameField.setText(field);
         }
       } catch (HopException ke) {
         new ErrorDialog(
@@ -821,7 +775,8 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
             BaseMessages.getString(PKG, "TikaDialog.FailedToGetFields.DialogMessage"),
             ke);
       }
-
+      gotPreviousFields = true;
+    }
   }
 
   private void enableFields() {
@@ -877,14 +832,9 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
    * @param meta The TextFileInputMeta object to obtain the data from.
    */
   public void getData(TikaMeta meta) {
-    System.console().printf("getData");
     wFilenameList.removeAll();
 
     for (TikaFile file : meta.getFiles()) {
-
-      System.console().printf("getFilesName : " + file.getName());
-      System.console().printf("getFilesMask : " + file.getMask());
-
       wFilenameList.add(
           file.getName(),
           file.getMask(),
@@ -893,11 +843,10 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
           file.isIncludingSubFolders() ? "Y" : "N");
     }
 
-    System.console().printf("getFilesEnd");
-
     wFilenameList.optimizeTableView();
 
     wAddResult.setSelection(meta.isAddingResultFile());
+    ;
     wIgnoreEmptyFile.setSelection(meta.isIgnoreEmptyFile());
 
     wFilenameInField.setSelection(meta.isFileInField());
@@ -931,14 +880,6 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
   }
 
   private void ok() {
-    // The "transformName" variable will be the return value for the open() method.
-    // Setting to step name from the dialog control
-    transformName = wTransformName.getText();
-
-    if (Utils.isEmpty(wTransformName.getText())) {
-      return;
-    }
-
     try {
       getInfo(input);
     } catch (HopException e) {
@@ -948,8 +889,6 @@ public class TikaDialog extends BaseTransformDialog implements ITransformDialog 
           BaseMessages.getString(PKG, "TikaDialog.ErrorParsingData.DialogMessage"),
           e);
     }
-
-    input.setChanged();
     dispose();
   }
 
