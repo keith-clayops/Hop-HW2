@@ -19,6 +19,7 @@ package org.apache.hop.pipeline.transforms.tika;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.vfs2.FileObject;
+import org.apache.commons.vfs2.provider.local.LocalFile;
 import org.apache.hop.core.Const;
 import org.apache.hop.core.ResultFile;
 import org.apache.hop.core.exception.HopException;
@@ -38,6 +39,7 @@ import org.apache.tika.metadata.Metadata;
 import org.json.simple.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Date;
@@ -55,6 +57,60 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
       PipelineMeta pipelineMeta,
       Pipeline pipeline) {
     super(transformMeta, meta, data, copyNr, pipelineMeta, pipeline);
+  }
+
+  @Override
+  public boolean init() {
+
+    if (super.init()) {
+      first = true;
+
+      if (!meta.isFileInField()) {
+        data.files = meta.getFiles(this);
+
+        if (data.files == null || data.files.nrOfFiles() == 0) {
+          log.logError("No files");
+          return false;
+        }
+        data.fileSize = data.files.nrOfFiles();
+
+        try {
+          handleMissingFiles();
+
+          // Create the output row meta-data
+          //
+          data.outputRowMeta = new RowMeta();
+
+          // Get the output row metadata populated
+          //
+          meta.getFields(data.outputRowMeta, getTransformName(), null, null, this, metadataProvider);
+
+          // Create convert meta-data objects that will contain Date & Number formatters
+          //
+          data.convertRowMeta = data.outputRowMeta.cloneToType(IValueMeta.TYPE_STRING);
+        } catch (Exception e) {
+          logError("Error at step initialization: " + e.toString());
+          logError(Const.getStackTracker(e));
+          return false;
+        }
+      }
+
+      data.rowNr = 1L;
+      data.totalPreviousFields = 0;
+
+      try {
+        ClassLoader classLoader = meta.getClass().getClassLoader();
+
+        data.tikaOutput = new TikaOutput(classLoader, log, this);
+
+      } catch (Exception e) {
+        logError("Tika Error", e);
+        return false;
+      }
+
+      return true;
+    }
+    return false;
   }
 
   private void addFileToResultFilesname(FileObject file) {
@@ -132,8 +188,7 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
 
         try {
           // Source is a file.
-          logBasic(fieldvalue);
-          data.file = HopVfs.getFileObjectTika(fieldvalue);
+          data.file = HopVfs.getFileObject(fieldvalue);
         } catch (HopFileException e) {
           throw new HopException(e);
         } finally {
@@ -171,8 +226,7 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
         logError(BaseMessages.getString(PKG, "Tika.Error.FileSizeZero", "" + data.file.getName()));
         openNextFile();
 
-      }
-      else {
+      } else {
         if (isDetailed()) {
           logDetailed(BaseMessages.getString(PKG, "Tika.Log.OpeningFile", data.file.toString()));
         }
@@ -266,10 +320,7 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
 
   private void getFileContent() throws HopException {
     try {
-      String tika_output = data.file.toString().substring(8).replace("/", "\\");
-      logBasic(tika_output);
-      logBasic(meta.getEncoding());
-      data.fileContent = getTextFileContent(tika_output, meta.getEncoding());
+      data.fileContent = getTextFileContent(data.file.toString(), meta.getEncoding());
     } catch (OutOfMemoryError o) {
       logError(BaseMessages.getString(PKG, "Tika.Error.NotEnoughMemory", data.file.getName()));
       throw new HopException(o);
@@ -289,32 +340,35 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
   public String getTextFileContent(String vfsFilename, String encoding) throws HopException {
     InputStream inputStream = null;
     String retval = null;
+
+    vfsFilename = (vfsFilename.contains("file://") ? vfsFilename.substring(7) : vfsFilename);
+
     try {
       // HACK: Check for local files, use a FileInputStream in that case
       //  The version of VFS we use will close the stream when all bytes are read, and if
       //  the file is less than 64KB (which is what Tika will read), then bad things happen.
-      if (vfsFilename.startsWith("file:")) {
-        logBasic("route1");
-        logBasic("Before transformation");
-        logBasic(vfsFilename);
-        String tika_output = vfsFilename.substring(8);
-                //.replace("/", "\\");
-        logBasic("After transformation");
-        logBasic(tika_output);
-        inputStream = new FileInputStream(tika_output);
-        logBasic("inputstream no error");
+
+      FileObject fileObject = HopVfs.getFileObject(HopVfs.getFilename(data.file));
+
+      //if (vfsFilename.startsWith("file:")) {
+      if (fileObject instanceof LocalFile) {
+        String localFilename = HopVfs.getFilename(fileObject);
+        File pdfFile = new File(localFilename);
+        inputStream = new FileInputStream(pdfFile);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        data.tikaOutput.parse(inputStream, meta.getOutputFormat(), baos);
+        retval = baos.toString();
+
       } else {
-        logBasic("route2");
-        logBasic(vfsFilename);
-        inputStream = HopVfs.getInputStreamTika(vfsFilename);
-        logBasic("inputstream no error");
+        inputStream = HopVfs.getInputStream(vfsFilename);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        data.tikaOutput.parse(inputStream, meta.getOutputFormat(), baos);
+        retval = baos.toString();
+
       }
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      logBasic("baos no error");
-      data.tikaOutput.parse(inputStream, meta.getOutputFormat(), baos);
-      logBasic("tikaOutput no error");
-      retval = baos.toString();
-      logBasic("baostostring no error");
+
     } catch (Exception e) {
       throw new HopException(
           BaseMessages.getString(PKG, "Tika.Error.GettingFileContent", vfsFilename, e.toString()),
@@ -441,52 +495,6 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
       obj.put(name, metadata.get(name));
     }
     return obj.toJSONString();
-  }
-
-  @Override
-  public boolean init() {
-
-    if (super.init()) {
-      if (!meta.isFileInField()) {
-        try {
-          data.files = meta.getFiles(this);
-          handleMissingFiles();
-          logBasic("handleMissingFiles ok");
-
-          // Create the output row meta-data
-          //
-          data.outputRowMeta = new RowMeta();
-
-          // Get the output row metadata populated
-          //
-          meta.getFields(
-              data.outputRowMeta, getTransformName(), null, null, this, metadataProvider);
-
-          // Create convert meta-data objects that will contain Date & Number formatters
-          //
-          data.convertRowMeta = data.outputRowMeta.cloneToType(IValueMeta.TYPE_STRING);
-        } catch (Exception e) {
-          logError("Error at step initialization: " + e.toString());
-          logError(Const.getStackTracker(e));
-          return false;
-        }
-
-        try {
-          ClassLoader classLoader = meta.getClass().getClassLoader();
-          logBasic("classLoader creation ok");
-
-          data.tikaOutput = new TikaOutput(classLoader, log, this);
-          logBasic("TikaOutput creation ok");
-
-        } catch (Exception e) {
-          logError("Tika Error", e);
-        }
-      }
-      data.rowNr = 1L;
-
-      return true;
-    }
-    return false;
   }
 
   @Override
