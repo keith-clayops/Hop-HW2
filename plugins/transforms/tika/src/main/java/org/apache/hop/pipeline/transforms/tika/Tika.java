@@ -305,12 +305,15 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
       } else {
         logBasic("route2");
         logBasic(vfsFilename);
-        inputStream = HopVfs.getInputStream(vfsFilename);
+        inputStream = HopVfs.getInputStreamTika(vfsFilename);
         logBasic("inputstream no error");
       }
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      logBasic("baos no error");
       data.tikaOutput.parse(inputStream, meta.getOutputFormat(), baos);
+      logBasic("tikaOutput no error");
       retval = baos.toString();
+      logBasic("baostostring no error");
     } catch (Exception e) {
       throw new HopException(
           BaseMessages.getString(PKG, "Tika.Error.GettingFileContent", vfsFilename, e.toString()),
@@ -447,6 +450,7 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
         try {
           data.files = meta.getFiles(this);
           handleMissingFiles();
+          logBasic("handleMissingFiles ok");
 
           // Create the output row meta-data
           //
@@ -468,8 +472,10 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
 
         try {
           ClassLoader classLoader = meta.getClass().getClassLoader();
+          logBasic("classLoader creation ok");
 
           data.tikaOutput = new TikaOutput(classLoader, log, this);
+          logBasic("TikaOutput creation ok");
 
         } catch (Exception e) {
           logError("Tika Error", e);

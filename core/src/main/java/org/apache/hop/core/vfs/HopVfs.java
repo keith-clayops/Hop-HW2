@@ -320,6 +320,16 @@ public class HopVfs {
     }
   }
 
+  public static InputStream getInputStreamTika(String vfsFilename) throws HopFileException {
+    try {
+      FileObject fileObject = getFileObjectTika(vfsFilename);
+
+      return getInputStream(fileObject);
+    } catch (IOException e) {
+      throw new HopFileException(e);
+    }
+  }
+
   public static OutputStream getOutputStream(FileObject fileObject, boolean append)
       throws IOException {
     FileObject parent = fileObject.getParent();
