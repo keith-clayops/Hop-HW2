@@ -297,7 +297,8 @@ public class Tika extends BaseTransform<TikaMeta, TikaData> {
         logBasic("route1");
         logBasic("Before transformation");
         logBasic(vfsFilename);
-        String tika_output = vfsFilename.substring(8).replace("/", "\\");
+        String tika_output = vfsFilename.substring(8);
+                //.replace("/", "\\");
         logBasic("After transformation");
         logBasic(tika_output);
         inputStream = new FileInputStream(tika_output);

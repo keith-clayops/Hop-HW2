@@ -211,20 +211,7 @@ public class HopVfs {
 
         relativeFilename = checkForScheme(initialSchemes, relativeFilename, vfsFilename);
 
-        String filename;
-        if (vfsFilename.startsWith("\\\\")) {
-          File file = new File(vfsFilename);
-          filename = vfsFilename;
-        } else {
-          if (relativeFilename) {
-            File file = new File(vfsFilename);
-            filename = vfsFilename;
-          } else {
-            filename = vfsFilename;
-          }
-        }
-
-        return fsManager.resolveFile(filename);
+        return fsManager.resolveFile(vfsFilename);
       } catch (Exception e) {
         throw new HopFileException(
                 "Unable to get VFS File object for filename '"
