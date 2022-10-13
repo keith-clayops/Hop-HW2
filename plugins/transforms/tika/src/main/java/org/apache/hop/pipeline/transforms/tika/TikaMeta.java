@@ -715,4 +715,5 @@ public class TikaMeta extends BaseTransformMeta<Tika, TikaData> {
   public void setMetadataFieldName(String metadataFieldName) {
     this.metadataFieldName = metadataFieldName;
   }
+
 }

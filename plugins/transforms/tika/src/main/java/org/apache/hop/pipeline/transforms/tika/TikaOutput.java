@@ -217,7 +217,9 @@ public class TikaOutput {
   public void parse(InputStream in, String outputFormat, OutputStream out) throws Exception {
 
     InputStream input = TikaInputStream.get(in);
+
     OutputType type = getTypeByName(outputFormat);
+
     try {
       lastMetadata = new Metadata();
       type.process(input, out, lastMetadata);
